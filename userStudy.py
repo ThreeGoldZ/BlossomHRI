@@ -1,7 +1,7 @@
 from robot import *
 from config import *
 import time
-import Touch2Gesture as tg
+# import Touch2Gesture as tg
 
 from log_conf import logger
 
@@ -9,6 +9,25 @@ from log_conf import logger
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
+
+def run_parallel_sequences(sequences):
+    my_robot.blocking = False
+    timeline = []
+    for seq in sequences:
+        timeline.extend(seq)
+    timeline.sort(key=lambda x: x[0])  # sort by timestamp
+
+    start_time = time.time()
+
+    for i, (timestamp, args, duration, velocity) in enumerate(timeline):
+        now = time.time()
+        target_time = start_time + timestamp / 1000.0
+        sleep_time = target_time - now
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+
+        # Move using all available fields
+        my_robot.move_motors_sync(args=args, duration=duration, velocity=velocity)
 
 def runTest():
     my_robot = Robot(config_dict=ROBOT_330_LAB)
@@ -62,8 +81,8 @@ def runCalming():
     time.sleep(2)
     my_robot.check_motor_status(["all"])
 
-    my_robot.clean_shutdown()
-    logger.info("Ended")
+    # my_robot.clean_shutdown()
+    # logger.info("Ended")
 
 
 
@@ -117,89 +136,139 @@ def runSadness():
 def run_happiness():
 
     my_robot = Robot(config_dict=ROBOT_330_LAB)
-    my_robot.set_speed(15,20)
-    logger.info("Starting positions")
     my_robot.check_motor_status(["all"])
     my_robot.enable_torque()
 
-    #Always this start setting: 
-    my_robot.move_motors_sync(args={1:0, 2:0, 3:0, 4:0, 5:0, 6:150}, duration={1:500, 2:500, 3:500, 4:500,5:500,6:500})
-    logger.info("Result of move to 150")
-    my_robot.check_motor_status(["all"])
-    logger.info("Sleep 2")
-    time.sleep(0.5)
+    vel = {1: 100, 2: 100, 3: 100, 4: 100}
+    happiness_arm_sequence = [
+        (0,    {5: 0,  6: 150}, {5: 200, 6: 200}, None),   # start position
+        (0,    {1:-10, 2:-90, 3:-10, 4:0},  {1:500, 2:500, 3:500, 4:500}, None), # tilt head
+        # First headshake loop
+        (500,  {5: 50, 6: 130}, {5: 200, 6: 200}, None),   # headshake left 1
+        (700,  {5: 50, 6: 130}, {5: 200, 6: 200}, None),   # headshake right 1
+        (900,  {5: 30, 6: 120}, {5: 200, 6: 200}, None),   # nod 1
+
+        # Second headshake loop
+        (1100, {5: 50, 6: 130}, {5: 200, 6: 200}, None),   # headshake left 2
+        (1300, {5: 50, 6: 130}, {5: 200, 6: 200}, None),   # headshake right 2
+        (1500, {5: 30, 6: 120}, {5: 200, 6: 200}, None),   # nod 2
+
+        (1700, {1:-20, 2:-20, 3:-10, 4:0, 5: 0,  6: 150},  {1:500, 2:500, 3:500, 4:500, 5:500, 6:500}, None),  # jump up + arm start
+        (2200, {1:10,  2:10,  3:10,  4:0},                   None,                                        vel),  # down
+        (2300, {1:-70, 2:-70, 3:-70, 4:0},                   None,                                        vel),  # up
+        (2400, {1:10,  2:10,  3:10,  4:0},                   None,                                        vel),  # down
+        (2500, {1:-70, 2:-70, 3:-70, 4:0},                   None,                                        vel),  # up
+        (2600, {1:10,  2:10,  3:10,  4:0},                   None,                                        vel),  # down
+        (2700, {1:0,   2:0,   3:0,   4:0},                   None,                                        vel),  # reset
+    ]
+
+    run_parallel_sequences([happiness_arm_sequence])
+
+    # #Always this start setting: 
+    # my_robot.move_motors_sync(args={1:0, 2:0, 3:0, 4:0, 5:0, 6:150}, duration={1:500, 2:500, 3:500, 4:500,5:500,6:500})
+    # logger.info("Result of move to 150")
+    # my_robot.check_motor_status(["all"])
+    # logger.info("Sleep 2")
+    # time.sleep(0.5)
 
     
    
-    # Begin happy headshake sequence
-    for i in range(2):
-        # Tilt head left with slight chin bob
-        my_robot.move_motors_sync(args={1: -15, 2: -30, 3: 0, 4: 0, 5: 50, 6: 130},
-                                  duration={1: 200, 2: 200, 3: 200, 4: 200, 5: 200, 6: 200})
-        logger.info(f"Headshake left {i+1}")
-        my_robot.check_motor_status(["all"])
-        #time.sleep(0.4)
+    # # Begin happy headshake sequence
+    # for i in range(2):
+    #     # Tilt head left with slight chin bob
+    #     my_robot.move_motors_sync(args={1: -15, 2: -30, 3: 0, 4: 0, 5: 50, 6: 130},
+    #                               duration={1: 200, 2: 200, 3: 200, 4: 200, 5: 200, 6: 200})
+    #     logger.info(f"Headshake left {i+1}")
+    #     my_robot.check_motor_status(["all"])
+    #     #time.sleep(0.4)
 
-        # Tilt head right with same chin bob
-        my_robot.move_motors_sync(args={1: -15, 2: 0, 3: -30, 4: 0, 5: 50, 6: 130},
-                                  duration={1: 200, 2: 200, 3: 200, 4: 200, 5: 200, 6: 200})
-        logger.info(f"Headshake right {i+1}")
-        my_robot.check_motor_status(["all"])
-        #time.sleep(0.4)
+    #     # Tilt head right with same chin bob
+    #     my_robot.move_motors_sync(args={1: -15, 2: 0, 3: -30, 4: 0, 5: 50, 6: 130},
+    #                               duration={1: 200, 2: 200, 3: 200, 4: 200, 5: 200, 6: 200})
+    #     logger.info(f"Headshake right {i+1}")
+    #     my_robot.check_motor_status(["all"])
+    #     #time.sleep(0.4)
 
-        # Final expressive nod (chin down)
-        my_robot.move_motors_sync(args={1: 10, 2: 0, 3: 0, 4: 0, 5: 30, 6: 120},
-                                duration={1: 300, 2: 300, 3: 300, 4: 300, 5: 300, 6: 300})
-        logger.info("Final nod forward")
-        my_robot.check_motor_status(["all"])
-        #time.sleep(1)
+    #     # Final expressive nod (chin down)
+    #     my_robot.move_motors_sync(args={1: 10, 2: 0, 3: 0, 4: 0, 5: 30, 6: 120},
+    #                             duration={1: 300, 2: 300, 3: 300, 4: 300, 5: 300, 6: 300})
+    #     logger.info("Final nod forward")
+    #     my_robot.check_motor_status(["all"])
+    #     #time.sleep(1)
     
-    my_robot.move_motors_sync(args={1:0, 2:0, 3:0, 4:0, 5:0, 6:150}, duration={1:500, 2:500, 3:500, 4:500,5:500,6:500})
-    logger.info("Result of move to 150")
-    my_robot.check_motor_status(["all"])
-    logger.info("Sleep 2")
-    #time.sleep(2)
+    # my_robot.move_motors_sync(args={1:0, 2:0, 3:0, 4:0, 5:0, 6:150}, duration={1:500, 2:500, 3:500, 4:500,5:500,6:500})
+    # logger.info("Result of move to 150")
+    # my_robot.check_motor_status(["all"])
+    # logger.info("Sleep 2")
+    # #time.sleep(2)
 
-    my_robot.clean_shutdown()
-    logger.info("Ended")
+    # my_robot.clean_shutdown()
+    # logger.info("Ended")
 
 def run_sadness2():
-    my_robot = Robot(config_dict=ROBOT_330_LAB)
-    my_robot.set_speed(2, 5)
-    logger.info("Starting positions")
-    my_robot.check_motor_status(["all"])
-    my_robot.enable_torque()
+    deflate_arm_sequence = [
+    # Neutral reset
+    (0, {1: 0, 2: 0, 3: 0, 4: 0},
+        {1: 500, 2: 500, 3: 500, 4: 500}, {1: 100, 2: 100, 3: 100, 4: 100}),
 
-    # Neutral start
-    my_robot.move_motors_sync(args={1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 150},
-                              duration={1: 500, 2: 500, 3: 500, 4: 500, 5: 500, 6: 500})
-    logger.info("Moved to neutral")
-    my_robot.check_motor_status(["all"])
-    time.sleep(2)
+    # Slight droop
+    (500, {1: -40, 2: -30, 3: -30, 4: 0},
+          {1: 750, 2: 750, 3: 750, 4: 750}, {1: 50, 2: 50, 3: 50, 4: 50}),
 
-    # Sad gesture: chin down, slight left tilt, hands lowered
-    my_robot.move_motors_sync(args={1: -60, 2: -20, 3: -10, 4: 0, 5: 60, 6: 130},
-                              duration={1: 800, 2: 800, 3: 800, 4: 800, 5: 800, 6: 800})
-    logger.info("Sad head and hands droop")
-    my_robot.check_motor_status(["all"])
-    time.sleep(2)
 
-    # Small movement to show emotional weight shift
-    my_robot.move_motors_sync(args={1: -70, 2: -10, 3: -20, 4: 0, 5: 60, 6: 130},
-                              duration={1: 800, 2: 800, 3: 800, 4: 800, 5: 800, 6: 800})
-    logger.info("Shifted sadness posture")
-    my_robot.check_motor_status(["all"])
-    time.sleep(2)
 
-    # Return slowly to neutral
-    my_robot.move_motors_sync(args={1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 150},
-                              duration={1: 1000, 2: 1000, 3: 1000, 4: 1000, 5: 1000, 6: 1000})
-    logger.info("Returning to neutral")
-    my_robot.check_motor_status(["all"])
-    time.sleep(1)
+    # Full deflate posture
+    (1500, {1: -120, 2: -30, 3: -30, 4: 0},
+            {1: 1000, 2: 1000, 3: 1000, 4: 1000}, {1: 50, 2: 50, 3: 50, 4: 50}),
 
-    my_robot.clean_shutdown()
-    logger.info("Sadness gesture ended")
+    (2500,  {5: 50, 6: 130}, {5: 500, 6: 500}, None),   # headshake right 1
+    (3000,  {5: 30, 6: 120}, {5: 600, 6: 600}, None),   # nod 1
+    (3600,  {5: 50, 6: 130}, {5: 500, 6: 500}, None),   # headshake right 1
+    (4100,  {5: 30, 6: 120}, {5: 600, 6: 600}, None),   # nod 1
+
+    # Hold for emotional weight
+    (4700, {1: 0, 2: 0, 3: 0, 4: 0, 5:0, 6:150},
+            None, {1: 100, 2: 100, 3: 100, 4: 100, 5:50, 6:50})
+    ]
+
+    run_parallel_sequences([deflate_arm_sequence])
+
+    # my_robot = Robot(config_dict=ROBOT_330_LAB)
+    # my_robot.set_speed(2, 5)
+    # logger.info("Starting positions")
+    # my_robot.check_motor_status(["all"])
+    # my_robot.enable_torque()
+
+    # # Neutral start
+    # my_robot.move_motors_sync(args={1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 150},
+    #                           duration={1: 500, 2: 500, 3: 500, 4: 500, 5: 500, 6: 500})
+    # logger.info("Moved to neutral")
+    # my_robot.check_motor_status(["all"])
+    # time.sleep(2)
+
+    # # Sad gesture: chin down, slight left tilt, hands lowered
+    # my_robot.move_motors_sync(args={1: -60, 2: -20, 3: -10, 4: 0, 5: 60, 6: 130},
+    #                           duration={1: 800, 2: 800, 3: 800, 4: 800, 5: 800, 6: 800})
+    # logger.info("Sad head and hands droop")
+    # my_robot.check_motor_status(["all"])
+    # time.sleep(2)
+
+    # # Small movement to show emotional weight shift
+    # my_robot.move_motors_sync(args={1: -70, 2: -10, 3: -20, 4: 0, 5: 60, 6: 130},
+    #                           duration={1: 800, 2: 800, 3: 800, 4: 800, 5: 800, 6: 800})
+    # logger.info("Shifted sadness posture")
+    # my_robot.check_motor_status(["all"])
+    # time.sleep(2)
+
+    # # Return slowly to neutral
+    # my_robot.move_motors_sync(args={1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 150},
+    #                           duration={1: 1000, 2: 1000, 3: 1000, 4: 1000, 5: 1000, 6: 1000})
+    # logger.info("Returning to neutral")
+    # my_robot.check_motor_status(["all"])
+    # time.sleep(1)
+
+    # my_robot.clean_shutdown()
+    # logger.info("Sadness gesture ended")
 
 
 def run_angry():
@@ -241,117 +310,213 @@ def run_angry():
     logger.info("Sadness gesture ended")
 
 def run_attention():
-    my_robot = Robot(config_dict=ROBOT_330_LAB)
-    my_robot.set_speed(25, 180)  # Snappy but not too fast
-    logger.info("Starting attention gesture")
-    my_robot.check_motor_status(["all"])
-    my_robot.enable_torque()
 
-    # Initial pose (low posture)
-    my_robot.move_motors_sync(args={1: -60, 2: -40, 3: -40, 4: 0, 5: 30, 6: 150},
-                              duration={i: 500 for i in range(1, 7)})
-    logger.info("Starting from relaxed pose")
-    time.sleep(1)
+    bobble_sequence = [
+        # Start: move to neutral
+        (0, {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 150},
+            None,
+            {1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 100}),
 
-    # Rise to attention: chin up, head straight
-    my_robot.move_motors_sync(args={1: -20, 2: 0, 3: 0},
-                              duration={1: 600, 2: 600, 3: 600})
-    logger.info("Lifted to attentive posture")
-    time.sleep(0.7)
+        # First tap
+        (500,  {5: 50, 6: 130}, {5: 100, 6: 100}, {5: 500, 6: 500}),   # up
+        (600,  {5: 10, 6: 120}, {5: 100, 6: 100}, {5: 500, 6: 500}),   # down
+
+        # Second tap
+        (700,  {5: 50, 6: 130}, {5: 100, 6: 100}, {5: 500, 6: 500}),   # up
+        (800,  {5: 10, 6: 120}, {5: 100, 6: 100}, {5: 500, 6: 500}),   # down
+
+        # First left bobble
+        (875, {1: -10, 2: -40, 3: -10, 4: 0, 5: 0, 6: 150},
+            {1: 125, 2: 125, 3: 125, 4: 125, 5: 100, 6: 100},
+            {1: 300, 2: 500, 3: 300, 4: 300, 5: 300, 6: 300}),
+
+        # First right bobble
+        (1000, {1: -10, 2: -10, 3: -40, 4: 0},
+            {1: 125, 2: 125, 3: 125, 4: 125},
+            {1: 300, 2: 300, 3: 500, 4: 300}),
+
+        # Second left bobble
+        (1125, {1: -10, 2: -40, 3: -10, 4: 0},
+            {1: 125, 2: 125, 3: 125, 4: 125},
+            {1: 300, 2: 500, 3: 300, 4: 300}),
+
+        # Second right bobble
+        (1250, {1: -10, 2: -10, 3: -40, 4: 0},
+            {1: 125, 2: 125, 3: 125, 4: 125},
+            {1: 300, 2: 300, 3: 500, 4: 300}),
+
+        # Return to neutral
+        (1375, {1: 0, 2: 0, 3: 0, 4: 0},
+            None,
+            {1: 100, 2: 100, 3: 100, 4: 100}),
+    ]
+
+    run_parallel_sequences([bobble_sequence])
+
+    # my_robot = Robot(config_dict=ROBOT_330_LAB)
+    # my_robot.set_speed(25, 180)  # Snappy but not too fast
+    # logger.info("Starting attention gesture")
+    # my_robot.check_motor_status(["all"])
+    # my_robot.enable_torque()
+
+    # # Initial pose (low posture)
+    # my_robot.move_motors_sync(args={1: -60, 2: -40, 3: -40, 4: 0, 5: 30, 6: 150},
+    #                           duration={i: 500 for i in range(1, 7)})
+    # logger.info("Starting from relaxed pose")
+    # time.sleep(1)
+
+    # # Rise to attention: chin up, head straight
+    # my_robot.move_motors_sync(args={1: -20, 2: 0, 3: 0},
+    #                           duration={1: 600, 2: 600, 3: 600})
+    # logger.info("Lifted to attentive posture")
+    # time.sleep(0.7)
 
    
-    my_robot.move_motors_sync(args={5: 90}, duration={5: 400})
-    #logger.info(f"Shoulder up {i+1}")
-    time.sleep(0.4)
+    # my_robot.move_motors_sync(args={5: 90}, duration={5: 400})
+    # #logger.info(f"Shoulder up {i+1}")
+    # time.sleep(0.4)
 
-    my_robot.move_motors_sync(args={5: 30}, duration={5: 400})
-    #logger.info(f"Shoulder down {i+1}")
-    time.sleep(0.4)
+    # my_robot.move_motors_sync(args={5: 30}, duration={5: 400})
+    # #logger.info(f"Shoulder down {i+1}")
+    # time.sleep(0.4)
 
-    # Hold attentive pose briefly
-    time.sleep(1)
+    # # Hold attentive pose briefly
+    # time.sleep(1)
 
-    # Return to neutral
-    my_robot.move_motors_sync(args={1: 0, 2: 0, 3: 0, 5: 30, 6: 150},
-                              duration={i: 500 for i in [1, 2, 3, 5, 6]})
-    logger.info("Returning to neutral")
-    time.sleep(1)
+    # # Return to neutral
+    # my_robot.move_motors_sync(args={1: 0, 2: 0, 3: 0, 5: 30, 6: 150},
+    #                           duration={i: 500 for i in [1, 2, 3, 5, 6]})
+    # logger.info("Returning to neutral")
+    # time.sleep(1)
 
-    my_robot.clean_shutdown()
-    logger.info("Attention gesture ended")
+    # my_robot.clean_shutdown()
+    # logger.info("Attention gesture ended")
 
 def run_gratitude():
-    my_robot = Robot(config_dict=ROBOT_330_LAB)
-    my_robot.set_speed(15, 12)  # Softer, more graceful motion
-    logger.info("Starting gratitude gesture")
-    my_robot.check_motor_status(["all"])
-    my_robot.enable_torque()
 
-    # Neutral start
-    my_robot.move_motors_sync(args={1: 0, 2: 0, 3: 0, 4: 0, 5: 30, 6: 130},
-                              duration={i: 500 for i in range(1, 7)})
-    logger.info("Moved to neutral")
-    my_robot.check_motor_status(["all"])
-    time.sleep(1)
+    two_quick_bows_sequence = [
+    # Start: neutral pose
+    (0, {1: 0, 2: 0, 3: 0, 4: 0, 5: 50, 6: 130}, {1: 100, 2: 100, 3: 100, 4: 100, 5:100, 6:100}, None),
 
-    # Gratitude pose: bow head, slight tilt, hands down, head turn
-    my_robot.move_motors_sync(args={1: -50, 2: -15, 3: -10, 4: 15, 5: 60, 6: 120},
-                              duration={i: 700 for i in range(1, 7)})
-    logger.info("Gratitude pose held")
-    my_robot.check_motor_status(["all"])
-    time.sleep(2)
+    # First bow
+    (100, {1: -100, 2: 0, 3: 0, 4: 0, 5: 20, 6: 120}, {1: 300, 2: 300, 3: 300, 4: 300, 5:300, 6:300}, None),
+    (400, {1: 0, 2: 0, 3: 0, 4: 0, 5: 50, 6: 130}, {1: 500, 2: 500, 3: 500, 4: 500, 5:500, 6:500}, None),
 
-    # Hold for 1 second, then nod gently once
-    my_robot.move_motors_sync(args={1: -60}, duration={1: 400})
-    time.sleep(0.4)
-    my_robot.move_motors_sync(args={1: -50}, duration={1: 400})
-    time.sleep(0.4)
+    # Second bow
+    (900, {1: -100, 2: 0, 3: 0, 4: 0, 5: 30, 6: 120}, {1: 300, 2: 300, 3: 300, 4: 300, 5:300, 6:300}, None),
+    (1200, {1: 0, 2: 0, 3: 0, 4: 0}, {1: 500, 2: 500, 3: 500, 4: 500}, None),
 
-    # Return to neutral slowly
-    my_robot.move_motors_sync(args={1: 0, 2: 0, 3: 0, 4: 0, 5: 30, 6: 150},
-                              duration={i: 800 for i in range(1, 7)})
-    logger.info("Returning to neutral")
-    my_robot.check_motor_status(["all"])
-    time.sleep(1)
+    # Final return (short)
+    (1700, {1: 0, 2: 0, 3: 0, 4: 0, 5:0, 6:150}, {1: 150, 2: 150, 3: 150, 4: 150, 5:150, 6:150}, None),
+    ]  
 
-    my_robot.clean_shutdown()
-    logger.info("Gratitude gesture ended")
+    run_parallel_sequences([two_quick_bows_sequence])
+
+    # my_robot = Robot(config_dict=ROBOT_330_LAB)
+    # my_robot.set_speed(15, 12)  # Softer, more graceful motion
+    # logger.info("Starting gratitude gesture")
+    # my_robot.check_motor_status(["all"])
+    # my_robot.enable_torque()
+
+    # # Neutral start
+    # my_robot.move_motors_sync(args={1: 0, 2: 0, 3: 0, 4: 0, 5: 30, 6: 130},
+    #                           duration={i: 500 for i in range(1, 7)})
+    # logger.info("Moved to neutral")
+    # my_robot.check_motor_status(["all"])
+    # time.sleep(1)
+
+    # # Gratitude pose: bow head, slight tilt, hands down, head turn
+    # my_robot.move_motors_sync(args={1: -50, 2: -15, 3: -10, 4: 15, 5: 60, 6: 120},
+    #                           duration={i: 700 for i in range(1, 7)})
+    # logger.info("Gratitude pose held")
+    # my_robot.check_motor_status(["all"])
+    # time.sleep(2)
+
+    # # Hold for 1 second, then nod gently once
+    # my_robot.move_motors_sync(args={1: -60}, duration={1: 400})
+    # time.sleep(0.4)
+    # my_robot.move_motors_sync(args={1: -50}, duration={1: 400})
+    # time.sleep(0.4)
+
+    # # Return to neutral slowly
+    # my_robot.move_motors_sync(args={1: 0, 2: 0, 3: 0, 4: 0, 5: 30, 6: 150},
+    #                           duration={i: 800 for i in range(1, 7)})
+    # logger.info("Returning to neutral")
+    # my_robot.check_motor_status(["all"])
+    # time.sleep(1)
+
+    # my_robot.clean_shutdown()
+    # logger.info("Gratitude gesture ended")
 
 def run_calming():
-    my_robot = Robot(config_dict=ROBOT_330_LAB)
-    my_robot.set_speed(5, 10)  # Very gentle motion
-    logger.info("Starting calming gesture")
-    my_robot.check_motor_status(["all"])
-    my_robot.enable_torque()
+    slow_nods_sequence = [
+        # Starting posture
+        (0, {1: -10, 2: -10, 3: -10, 4: 0, 5: 50, 6: 130},
+            {1: 500, 2: 500, 3: 500, 4: 500, 5:500, 6:500},
+            None),
 
-    # Neutral calming starting pose
-    my_robot.move_motors_sync(args={1: -20, 2: 0, 3: 0, 4: 0, 5: 30, 6: 150},
-                              duration={i: 600 for i in range(1, 7)})
-    logger.info("Moved to calming neutral")
-    my_robot.check_motor_status(["all"])
-    time.sleep(1.5)
+        # First nod down
+        (500, {1: -60, 2: 0, 3: 0, 4: 0, 5: 30, 6: 120},
+            {1: 1000, 2: 1000, 3: 1000, 4: 1000, 5:1000, 6:1000},
+            None),
 
-    for i in range(2):  # Two cycles of calming motion
-        # Head tilt left, shoulder up, arm swings in
-        my_robot.move_motors_sync(args={2: -20, 3: 0, 5: 60, 6: 130},
-                                  duration={2: 800, 3: 800, 5: 800, 6: 800})
-        logger.info(f"Left calming sway {i+1}")
-        time.sleep(1.0)
+        # First nod up
+        (1500, {1: 20, 2: -10, 3: -10, 4: 0, 5: 50, 6: 130},
+            {1: 1000, 2: 1000, 3: 1000, 4: 1000, 5:1000, 6:1000},
+            None),
 
-        # Head tilt right, shoulder stays up, arm swings out
-        my_robot.move_motors_sync(args={2: 0, 3: -20, 5: 60, 6: 150},
-                                  duration={2: 800, 3: 800, 5: 800, 6: 800})
-        logger.info(f"Right calming sway {i+1}")
-        time.sleep(1.0)
+        # Second nod down
+        (2500, {1: -60, 2: 0, 3: 0, 4: 0, 5: 30, 6: 120},
+            {1: 1000, 2: 1000, 3: 1000, 4: 1000},
+            None),
 
-    # Return slowly to calming neutral
-    my_robot.move_motors_sync(args={1: -20, 2: 0, 3: 0, 4: 0, 5: 30, 6: 150},
-                              duration={i: 800 for i in range(1, 7)})
-    logger.info("Returning to calming neutral")
-    time.sleep(1.5)
+        # Second nod up
+        (3500, {1: 20, 2: -10, 3: -10, 4: 0},
+            {1: 1000, 2: 1000, 3: 1000, 4: 1000},
+            None),
 
-    my_robot.clean_shutdown()
-    logger.info("Calming gesture ended")
+        # Return to neutral
+        (4500, {1: 0, 2: 0, 3: 0, 4: 0,  5:0, 6:150},
+            {1: 500, 2: 500, 3: 500, 4: 500, 5:500, 6:500},
+            None),
+    ]
+
+    run_parallel_sequences([slow_nods_sequence])
+
+    # my_robot = Robot(config_dict=ROBOT_330_LAB)
+    # my_robot.set_speed(5, 10)  # Very gentle motion
+    # logger.info("Starting calming gesture")
+    # my_robot.check_motor_status(["all"])
+    # my_robot.enable_torque()
+
+    # # Neutral calming starting pose
+    # my_robot.move_motors_sync(args={1: -20, 2: 0, 3: 0, 4: 0, 5: 30, 6: 150},
+    #                           duration={i: 600 for i in range(1, 7)})
+    # logger.info("Moved to calming neutral")
+    # my_robot.check_motor_status(["all"])
+    # time.sleep(1.5)
+
+    # for i in range(2):  # Two cycles of calming motion
+    #     # Head tilt left, shoulder up, arm swings in
+    #     my_robot.move_motors_sync(args={2: -20, 3: 0, 5: 60, 6: 130},
+    #                               duration={2: 800, 3: 800, 5: 800, 6: 800})
+    #     logger.info(f"Left calming sway {i+1}")
+    #     time.sleep(1.0)
+
+    #     # Head tilt right, shoulder stays up, arm swings out
+    #     my_robot.move_motors_sync(args={2: 0, 3: -20, 5: 60, 6: 150},
+    #                               duration={2: 800, 3: 800, 5: 800, 6: 800})
+    #     logger.info(f"Right calming sway {i+1}")
+    #     time.sleep(1.0)
+
+    # # Return slowly to calming neutral
+    # my_robot.move_motors_sync(args={1: -20, 2: 0, 3: 0, 4: 0, 5: 30, 6: 150},
+    #                           duration={i: 800 for i in range(1, 7)})
+    # logger.info("Returning to calming neutral")
+    # time.sleep(1.5)
+
+    # my_robot.clean_shutdown()
+    # logger.info("Calming gesture ended")
 
 #def main():
     #run_attention()
@@ -387,5 +552,7 @@ def run_function():
     return jsonify({"status": "success", "executed": func_name})
 
 if __name__ == "__main__":
+    my_robot = Robot(config_dict=ROBOT_330_LAB)
+    my_robot.enable_torque()
     app.run(host="0.0.0.0", port=5002)
     #run_attention()

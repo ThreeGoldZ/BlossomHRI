@@ -3,6 +3,7 @@ import json
 import pandas as pd
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
+from statsmodels.stats.multicomp import pairwise_tukeyhsd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -102,7 +103,48 @@ valence_partner_df['emotion'] = valence_partner_df['emotion'].astype('category')
 model = ols('value ~ C(robot) * C(touch) * C(emotion)', data=valence_partner_df).fit()
 anova_table = sm.stats.anova_lm(model, typ=2)
 
+print("=== PARTNER VALENCE ANOVA ===")
 print(anova_table)
+
+# Post-hoc analysis for partner valence
+print("\n=== POST-HOC ANALYSIS FOR PARTNER VALENCE ===")
+
+# Create interaction groups for post-hoc
+valence_partner_df['robot_touch'] = valence_partner_df['robot'].astype(str) + '_' + valence_partner_df['touch'].astype(str)
+valence_partner_df['robot_emotion'] = valence_partner_df['robot'].astype(str) + '_' + valence_partner_df['emotion'].astype(str)
+valence_partner_df['touch_emotion'] = valence_partner_df['touch'].astype(str) + '_' + valence_partner_df['emotion'].astype(str)
+valence_partner_df['robot_touch_emotion'] = valence_partner_df['robot'].astype(str) + '_' + valence_partner_df['touch'].astype(str) + '_' + valence_partner_df['emotion'].astype(str)
+
+# Post-hoc for main effects
+print("\n--- Robot Effect ---")
+tukey_robot = pairwise_tukeyhsd(valence_partner_df['value'], valence_partner_df['robot'])
+print(tukey_robot)
+
+print("\n--- Touch Effect ---")
+tukey_touch = pairwise_tukeyhsd(valence_partner_df['value'], valence_partner_df['touch'])
+print(tukey_touch)
+
+print("\n--- Emotion Effect ---")
+tukey_emotion = pairwise_tukeyhsd(valence_partner_df['value'], valence_partner_df['emotion'])
+print(tukey_emotion)
+
+# Post-hoc for two-way interactions
+print("\n--- Robot x Touch Interaction ---")
+tukey_robot_touch = pairwise_tukeyhsd(valence_partner_df['value'], valence_partner_df['robot_touch'])
+print(tukey_robot_touch)
+
+print("\n--- Robot x Emotion Interaction ---")
+tukey_robot_emotion = pairwise_tukeyhsd(valence_partner_df['value'], valence_partner_df['robot_emotion'])
+print(tukey_robot_emotion)
+
+print("\n--- Touch x Emotion Interaction ---")
+tukey_touch_emotion = pairwise_tukeyhsd(valence_partner_df['value'], valence_partner_df['touch_emotion'])
+print(tukey_touch_emotion)
+
+# Post-hoc for three-way interaction
+print("\n--- Robot x Touch x Emotion Interaction ---")
+tukey_robot_touch_emotion = pairwise_tukeyhsd(valence_partner_df['value'], valence_partner_df['robot_touch_emotion'])
+print(tukey_robot_touch_emotion)
 
 #run the same model for arousal and confidence
 arousal_partner_df['robot'] = arousal_partner_df['robot'].astype('category')

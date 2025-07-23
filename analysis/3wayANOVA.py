@@ -8,7 +8,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Load the data
-with open('user_emotion_rating_data.json', 'r', encoding='utf-8') as f:
+with open('parsed_participants.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
 
 valence_partner = []
